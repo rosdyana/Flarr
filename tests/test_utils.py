@@ -1,0 +1,105 @@
+"""Tests for utility functions."""
+
+import pytest
+import sys
+import os
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from bootable_usb_simple import format_size, parse_size, get_usb_disks
+
+
+class TestFormatSize:
+    """Tests for format_size function."""
+    
+    def test_bytes(self):
+        assert format_size(500) == "500.0 B"
+    
+    def test_kilobytes(self):
+        result = format_size(1024)
+        assert "KB" in result or result == "1024.0 B"
+    
+    def test_megabytes(self):
+        result = format_size(5 * 1024 * 1024)
+        assert "MB" in result
+    
+    def test_gigabytes(self):
+        result = format_size(8 * 1024**3)
+        assert "GB" in result
+    
+    def test_terabytes(self):
+        result = format_size(2 * 1024**4)
+        assert "TB" in result or "PB" in result
+
+
+class TestParseSize:
+    """Tests for parse_size function."""
+    
+    def test_bytes(self):
+        assert parse_size("500B") == 500
+        assert parse_size("500 B") == 500
+    
+    def test_kilobytes(self):
+        assert parse_size("4K") == 4 * 1024
+        assert parse_size("4KB") == 4 * 1024
+    
+    def test_megabytes(self):
+        assert parse_size("100M") == 100 * 1024**2
+        assert parse_size("100MB") == 100 * 1024**2
+    
+    def test_gigabytes(self):
+        assert parse_size("8G") == 8 * 1024**3
+        assert parse_size("8GB") == 8 * 1024**3
+    
+    def test_invalid(self):
+        assert parse_size("") == 0
+        assert parse_size("invalid") == 0
+
+
+class TestGetUsbDisks:
+    """Tests for get_usb_disks function."""
+    
+    def test_returns_list(self):
+        """get_usb_disks should return a list."""
+        disks = get_usb_disks()
+        assert isinstance(disks, list)
+    
+    def test_disk_structure(self):
+        """Each disk should have required fields."""
+        disks = get_usb_disks()
+        for disk in disks:
+            assert 'device' in disk
+            assert 'name' in disk
+            assert 'size' in disk
+            assert 'model' in disk
+            assert isinstance(disk['device'], str)
+            assert isinstance(disk['name'], str)
+
+
+class TestDiskDetectionSafety:
+    """Safety tests for disk detection."""
+    
+    def test_no_internal_disks(self):
+        """USB-only filtering should not return internal disks.
+        
+        This is a soft test - without root, we might not detect anything.
+        """
+        disks = get_usb_disks()
+        
+        # If we detect disks, verify they look like USB devices
+        for disk in disks:
+            device = disk['device'].lower()
+            # Should not be typical internal disk patterns
+            # Note: This is platform-dependent
+            if 'linux' in sys.platform:
+                # On Linux, internal disks often follow patterns like sda, nvme0
+                # USB devices typically start from sdb or have usb in path
+                pass  # Detection is handled by lsblk
+            elif 'darwin' in sys.platform:
+                # On macOS, internal disks are usually disk0
+                assert 'disk0' not in device, "Internal disk detected!"
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

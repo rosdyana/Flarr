@@ -1,0 +1,9 @@
+# This project uses uv for dependency management.
+# See pyproject.toml for dependencies.
+# 
+# Quick setup:
+#   uv sync
+#
+# Or with pip:
+#   pip install -e .
+#   pip install -e ".[tui]"  # For TUI version
