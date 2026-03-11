@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Bootable USB Creator TUI
+"""Bootable USB Creator TUI.
+
 A safe, user-friendly tool for creating bootable USB drives.
 
 WARNING: This tool writes raw data to disks. Use with extreme caution.
@@ -11,7 +11,6 @@ import platform
 import re
 import subprocess
 import sys
-import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,7 +34,6 @@ from textual.widgets import (
     Select,
     Static,
 )
-from textual.worker import Worker, get_current_worker
 
 
 @dataclass(frozen=True)
@@ -50,7 +48,8 @@ class DiskInfo:
     is_removable: bool
     is_usb: bool
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a human-readable representation of the disk."""
         return f"{self.device} ({self.model}, {self.size})"
 
 
@@ -95,16 +94,16 @@ class DiskUtils:
                 device_path = f"/dev/{device_name}"
 
                 # Check if it's removable (RM=1) and USB
-                is_removable = device.get("rm") == "1" or device.get("rm") == True
+                is_removable = device.get("rm") == "1" or bool(device.get("rm"))
                 is_usb = device.get("tran") == "usb"
 
                 # Also check /sys/class/block for removable attribute
                 removable_file = f"/sys/class/block/{device_name}/removable"
                 if os.path.exists(removable_file):
                     try:
-                        with open(removable_file, "r") as f:
+                        with open(removable_file) as f:
                             is_removable = f.read().strip() == "1"
-                    except:
+                    except OSError:
                         pass
 
                 # Only include removable USB devices
@@ -429,6 +428,7 @@ class WarningScreen(Screen):
     """Initial warning screen."""
 
     def compose(self) -> ComposeResult:
+        """Compose the warning screen layout."""
         yield Header(show_clock=True)
 
         with Container(classes="centered"):
@@ -450,10 +450,12 @@ class WarningScreen(Screen):
 
     @on(Button.Pressed, "#continue")
     def start_app(self) -> None:
+        """Navigate to the main selection screen."""
         self.app.push_screen("select")
 
     @on(Button.Pressed, "#exit")
     def exit_app(self) -> None:
+        """Exit the application."""
         self.app.exit()
 
 
@@ -465,6 +467,7 @@ class SelectionScreen(Screen):
     selected_disk: reactive[Optional[DiskInfo]] = reactive(None)
 
     def compose(self) -> ComposeResult:
+        """Compose the selection screen layout."""
         yield Header(show_clock=True)
 
         with Vertical(classes="main-container"):
@@ -511,6 +514,7 @@ class SelectionScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        """Mount handler — perform initial disk refresh."""
         self.refresh_disks()
 
     def refresh_disks(self) -> None:
@@ -538,24 +542,29 @@ class SelectionScreen(Screen):
 
     @on(Button.Pressed, "#browse")
     def browse_files(self) -> None:
+        """Open the ISO file picker screen."""
         self.app.push_screen(FilePickerScreen())
 
     @on(Button.Pressed, "#refresh")
     def handle_refresh(self) -> None:
+        """Re-scan and refresh the list of USB disks."""
         self.refresh_disks()
 
     @on(Button.Pressed, "#proceed")
     def handle_proceed(self) -> None:
+        """Navigate to the confirmation screen if both selections are valid."""
         if self.selected_iso and self.selected_disk:
             dry_run = self.query_one("#dry_run", Checkbox).value
             self.app.push_screen(ConfirmScreen(self.selected_iso, self.selected_disk, dry_run))
 
     @on(Button.Pressed, "#exit")
     def handle_exit(self) -> None:
+        """Exit the application."""
         self.app.exit()
 
     @on(Input.Changed, "#iso_path")
     def iso_path_changed(self, event: Input.Changed) -> None:
+        """Validate and store the ISO path as the user types."""
         path = event.value.strip()
         if not path:
             self.selected_iso = None
@@ -575,6 +584,7 @@ class SelectionScreen(Screen):
 
     @on(Select.Changed, "#disk_select")
     def disk_selection_changed(self, event: Select.Changed) -> None:
+        """Update the selected disk and display its details."""
         # Handle different Textual versions for NULL/BLANK
         is_null = False
         try:
@@ -597,6 +607,7 @@ class SelectionScreen(Screen):
 
     @on(Checkbox.Changed, "#dry_run")
     def dry_run_changed(self, event: Checkbox.Changed) -> None:
+        """Update the options hint when dry-run is toggled."""
         info = self.query_one("#option_info", Static)
         if event.value:
             info.update("✅ Safe mode enabled: Simulation only")
@@ -613,6 +624,7 @@ class ISOFileTree(DirectoryTree):
     """A DirectoryTree that only shows ISO files and directories."""
 
     def filter_paths(self, paths: list[Path]) -> list[Path]:
+        """Show only directories and .iso files in the tree."""
         return [path for path in paths if path.is_dir() or path.suffix.lower() == ".iso"]
 
 
@@ -620,6 +632,7 @@ class FilePickerScreen(Screen):
     """File picker screen using DirectoryTree."""
 
     def compose(self) -> ComposeResult:
+        """Compose the file picker screen layout."""
         yield Header(show_clock=True)
 
         with Container(classes="main-container"):
@@ -635,17 +648,19 @@ class FilePickerScreen(Screen):
 
     @on(DirectoryTree.FileSelected)
     def handle_file_selected(self, event: DirectoryTree.FileSelected) -> None:
+        """Handle a file selection event from the directory tree."""
         self._select_file(str(event.path))
 
     def _select_file(self, file_path: str) -> None:
+        """Set the ISO path on the parent screen and close the picker."""
         if file_path.lower().endswith(".iso"):
-            # Set the ISO path in parent screen
             parent = self.app.screen_stack[-2]
             parent.query_one("#iso_path", Input).value = file_path
             self.app.pop_screen()
 
     @on(Button.Pressed, "#select")
     def select_highlighted_file(self) -> None:
+        """Confirm the currently highlighted file in the tree as the ISO."""
         tree = self.query_one("#file_tree", ISOFileTree)
         if tree.cursor_node and tree.cursor_node.data:
             path = tree.cursor_node.data
@@ -654,6 +669,7 @@ class FilePickerScreen(Screen):
 
     @on(Button.Pressed, "#cancel")
     def cancel_picker(self) -> None:
+        """Close the file picker without selecting a file."""
         self.app.pop_screen()
 
 
@@ -661,6 +677,7 @@ class ConfirmScreen(Screen):
     """Final confirmation screen with safety check."""
 
     def __init__(self, iso_path: str, disk: DiskInfo, dry_run: bool = False):
+        """Initialise the confirmation screen with ISO path, disk, and dry-run flag."""
         super().__init__()
         self.iso_path = iso_path
         self.disk = disk
@@ -668,6 +685,7 @@ class ConfirmScreen(Screen):
         self.confirmed = False
 
     def compose(self) -> ComposeResult:
+        """Compose the confirmation screen layout."""
         yield Header(show_clock=True)
 
         with Container(classes="main-container"):
@@ -703,11 +721,13 @@ class ConfirmScreen(Screen):
         yield Footer()
 
     def on_input_changed(self, event: Input.Changed) -> None:
+        """Enable the write button only when the correct device name is typed."""
         if event.input.id == "confirm_input":
             self.confirmed = event.value.strip() == self.disk.name
             self.query_one("#write", Button).disabled = not self.confirmed
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle write confirmation or go-back button presses."""
         if event.button.id == "write":
             self.app.push_screen(WriteScreen(self.iso_path, self.disk, self.dry_run))
         else:
@@ -720,6 +740,7 @@ class WriteScreen(Screen):
     progress: reactive[int] = reactive(0)
 
     def __init__(self, iso_path: str, disk: DiskInfo, dry_run: bool = False):
+        """Initialise the write screen with ISO path, target disk, and dry-run flag."""
         super().__init__()
         self.iso_path = iso_path
         self.disk = disk
@@ -728,6 +749,7 @@ class WriteScreen(Screen):
         self.message = ""
 
     def compose(self) -> ComposeResult:
+        """Compose the write-progress screen layout."""
         yield Header(show_clock=True)
 
         with Container(classes="main-container"):
@@ -748,6 +770,7 @@ class WriteScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
+        """Mount handler — kick off the write worker immediately."""
         self.start_write()
 
     def start_write(self) -> None:
@@ -756,7 +779,6 @@ class WriteScreen(Screen):
 
     def do_write(self) -> None:
         """Perform the actual write operation."""
-        worker = get_current_worker()
 
         def update_progress(value: int):
             self.app.call_from_thread(self.update_progress_ui, value)
@@ -801,6 +823,7 @@ class WriteScreen(Screen):
 
     @on(Button.Pressed, "#finish")
     def finish_writing(self) -> None:
+        """Exit the application with a success or failure code."""
         self.app.exit(0 if self.result else 1)
 
 
@@ -964,6 +987,7 @@ class BootableUSBApp(App):
     }
 
     def on_mount(self) -> None:
+        """Mount handler — push the warning screen on startup."""
         self.push_screen("warning")
 
 
@@ -991,7 +1015,7 @@ def check_root():
                 response = input("Continue anyway? (yes/no): ")
                 if response.lower() != "yes":
                     sys.exit(1)
-        except:
+        except Exception:
             pass
 
 

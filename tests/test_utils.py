@@ -15,21 +15,26 @@ class TestFormatSize:
     """Tests for format_size function."""
 
     def test_bytes(self):
+        """format_size should format raw bytes correctly."""
         assert format_size(500) == "500.0 B"
 
     def test_kilobytes(self):
+        """format_size should format kilobyte values correctly."""
         result = format_size(1024)
         assert "KB" in result or result == "1024.0 B"
 
     def test_megabytes(self):
+        """format_size should format megabyte values correctly."""
         result = format_size(5 * 1024 * 1024)
         assert "MB" in result
 
     def test_gigabytes(self):
+        """format_size should format gigabyte values correctly."""
         result = format_size(8 * 1024**3)
         assert "GB" in result
 
     def test_terabytes(self):
+        """format_size should format terabyte values correctly."""
         result = format_size(2 * 1024**4)
         assert "TB" in result or "PB" in result
 
@@ -38,22 +43,27 @@ class TestParseSize:
     """Tests for parse_size function."""
 
     def test_bytes(self):
+        """parse_size should parse byte strings to the correct integer value."""
         assert parse_size("500B") == 500
         assert parse_size("500 B") == 500
 
     def test_kilobytes(self):
+        """parse_size should correctly parse K and KB suffixes."""
         assert parse_size("4K") == 4 * 1024
         assert parse_size("4KB") == 4 * 1024
 
     def test_megabytes(self):
+        """parse_size should correctly parse M and MB suffixes."""
         assert parse_size("100M") == 100 * 1024**2
         assert parse_size("100MB") == 100 * 1024**2
 
     def test_gigabytes(self):
+        """parse_size should correctly parse G and GB suffixes."""
         assert parse_size("8G") == 8 * 1024**3
         assert parse_size("8GB") == 8 * 1024**3
 
     def test_invalid(self):
+        """parse_size should return 0 for empty or unrecognised strings."""
         assert parse_size("") == 0
         assert parse_size("invalid") == 0
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""
-Bootable USB Creator - Simple Version
+"""Bootable USB Creator - Simple Version.
+
 Ultra-lightweight, no external dependencies.
 Uses only Python standard library.
 
@@ -13,7 +13,6 @@ import platform
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 
 def clear():
@@ -117,9 +116,9 @@ def get_linux_disks():
             removable_file = f"/sys/class/block/{device_name}/removable"
             if os.path.exists(removable_file):
                 try:
-                    with open(removable_file, "r") as f:
+                    with open(removable_file) as f:
                         is_removable = f.read().strip() == "1"
-                except:
+                except OSError:
                     pass
 
             if not (is_removable or is_usb):
@@ -267,7 +266,7 @@ def select_iso():
             continue
 
         if not path.lower().endswith(".iso"):
-            print(f"⚠️  Warning: File doesn't have .iso extension")
+            print("⚠️  Warning: File doesn't have .iso extension")
             if not confirm("Continue anyway?"):
                 continue
 
@@ -378,8 +377,6 @@ def unmount_disk(device):
 def write_iso(device, iso_path, dry_run=False):
     """Write ISO to USB device."""
     system = platform.system()
-    iso_size = os.path.getsize(iso_path)
-
     if dry_run:
         print("\n[DRY RUN - Simulating write...]")
         for i in range(0, 101, 10):
@@ -391,7 +388,7 @@ def write_iso(device, iso_path, dry_run=False):
         return True
 
     print("\n📝 Writing ISO to USB...")
-    print(f"   This may take several minutes. Do not remove the USB drive.")
+    print("   This may take several minutes. Do not remove the USB drive.")
     print()
 
     # Unmount first
@@ -454,7 +451,7 @@ def check_privileges():
                 print()
                 if not confirm("Continue anyway?"):
                     sys.exit(1)
-        except:
+        except Exception:
             pass
 
 
